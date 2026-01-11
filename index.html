@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Quiz App</title>
-
 <style>
 body{
   margin:0;
@@ -15,7 +14,6 @@ body{
   justify-content:center;
   align-items:center;
 }
-
 .container{
   width:90%;
   max-width:800px;
@@ -24,10 +22,8 @@ body{
   padding:20px;
   box-shadow:0 8px 20px rgba(0,0,0,0.2);
 }
-
 h1,h2{text-align:center}
 .hidden{display:none}
-
 .set{
   display:flex;
   align-items:center;
@@ -38,7 +34,6 @@ h1,h2{text-align:center}
   cursor:pointer;
 }
 .set:hover{background:#e8e8e8}
-
 .set img{
   width:60px;
   height:60px;
@@ -46,33 +41,30 @@ h1,h2{text-align:center}
   margin-right:15px;
   object-fit:cover;
 }
-
 .set-buttons{
   margin-left:auto;
   display:flex;
   gap:5px;
 }
-
+.answer-row{
+  display:flex;
+  justify-content:space-between;
+  margin:5px 0;
+}
 .answer{
+  flex: 0 0 48%;
   padding:15px;
-  margin:10px 0;
+  margin:0;
   border:none;
   border-radius:12px;
   font-size:16px;
   cursor:pointer;
-  width:100%;
 }
-
-.a1{background:#4facfe;color:white}
-.a2{background:#43e97b;color:white}
-.a3{background:#fa709a;color:white}
-.a4{background:#667eea;color:white}
-
 .correct{outline:4px solid #2ecc71}
 .incorrect{outline:4px solid #e74c3c}
+.quiz-img{width:100%;max-height:250px;object-fit:cover;margin-bottom:15px;border-radius:12px;}
 </style>
 </head>
-
 <body>
 <div class="container">
 
@@ -89,7 +81,6 @@ h1,h2{text-align:center}
 <!-- EDITOR -->
 <div id="editor" class="hidden">
 <h2>Créer / Modifier un quiz</h2>
-
 <input id="title" placeholder="Titre du quiz"><br><br>
 
 <input id="image" placeholder="URL image du quiz"><br>
@@ -107,6 +98,7 @@ h1,h2{text-align:center}
 <!-- GAME -->
 <div id="game" class="hidden">
 <h2 id="qTitle"></h2>
+<div id="quiz-img-container"></div>
 <p id="question"></p>
 <div id="answers"></div>
 </div>
@@ -125,8 +117,7 @@ let quizzes = JSON.parse(localStorage.getItem("quizzes")) || [];
 let currentQuizIndex = null;
 let qi = 0;
 let score = 0;
-
-function save(){ localStorage.setItem("quizzes",JSON.stringify(quizzes)); }
+let currentAnswers = [];
 
 document.getElementById("imageFile").onchange = e=>{
   const file = e.target.files[0];
@@ -138,9 +129,9 @@ document.getElementById("imageFile").onchange = e=>{
   reader.readAsDataURL(file);
 };
 
-function hideAll(){
-  document.querySelectorAll(".container>div").forEach(d=>d.classList.add("hidden"));
-}
+function save(){ localStorage.setItem("quizzes",JSON.stringify(quizzes)); }
+
+function hideAll(){ document.querySelectorAll(".container>div").forEach(d=>d.classList.add("hidden")); }
 
 function home(){
   hideAll();
@@ -202,15 +193,16 @@ function editQuiz(i){
   document.getElementById("title").value=q.title;
   document.getElementById("image").value=q.image||"";
   document.getElementById("questions").innerHTML="";
-  q.questions.forEach(x=>addQuestion(x.q,x.a,x.c));
+  q.questions.forEach(x=>addQuestion(x.q,x.a,x.c,x.img));
   hideAll();
   document.getElementById("editor").classList.remove("hidden");
 }
 
-function addQuestion(q="",a=["","","",""],c=0){
+function addQuestion(q="",a=["","","",""],c=0,img=""){
   const d=document.createElement("div");
   d.innerHTML=`
     <input placeholder="Question" value="${q}"><br>
+    <input placeholder="URL image (optionnel)" value="${img}"><br>
     ${a.map((x,i)=>`<input placeholder="Réponse ${i+1}" value="${x}"><br>`).join("")}
     <input type="number" min="1" max="4" value="${c+1}"> Bonne réponse
     <hr>
@@ -226,8 +218,9 @@ function saveQuiz(){
     const i=d.querySelectorAll("input");
     qs.push({
       q:i[0].value,
-      a:[i[1].value,i[2].value,i[3].value,i[4].value],
-      c:parseInt(i[5].value)-1
+      img:i[1].value,
+      a:[i[2].value,i[3].value,i[4].value,i[5].value],
+      c:parseInt(i[6].value)-1
     });
   });
   const quiz={title,image,questions:qs};
@@ -248,20 +241,44 @@ function start(i){
 
 function showQ(){
   const q=quizzes[currentQuizIndex].questions[qi];
+  const imgContainer=document.getElementById("quiz-img-container");
+  imgContainer.innerHTML="";
+  if(q.img){
+    const img=document.createElement("img");
+    img.src=q.img;
+    img.className="quiz-img";
+    imgContainer.appendChild(img);
+  }
+
   document.getElementById("question").textContent=q.q;
-  const a=document.getElementById("answers");
-  a.innerHTML="";
-  q.a.forEach((t,i)=>{
-    const b=document.createElement("button");
-    b.className="answer a"+(i+1);
-    b.textContent=t;
-    b.onclick=()=>{
-      if(i===q.c){score++;b.classList.add("correct");}
-      else b.classList.add("incorrect");
-      setTimeout(next,600);
-    };
-    a.appendChild(b);
-  });
+
+  // mélanger réponses
+  currentAnswers=q.a.map((text,index)=>({text,index})); 
+  for(let j=currentAnswers.length-1;j>0;j--){
+    const k=Math.floor(Math.random()*(j+1));
+    [currentAnswers[j],currentAnswers[k]]=[currentAnswers[k],currentAnswers[j]];
+  }
+
+  const aDiv=document.getElementById("answers");
+  aDiv.innerHTML="";
+  for(let row=0;row<2;row++){
+    const rowDiv=document.createElement("div");
+    rowDiv.className="answer-row";
+    for(let col=0;col<2;col++){
+      const ansObj=currentAnswers[row*2+col];
+      if(!ansObj) continue;
+      const b=document.createElement("button");
+      b.className="answer";
+      b.textContent=ansObj.text;
+      b.onclick=()=>{
+        if(ansObj.index===q.c){score++;b.classList.add("correct");}
+        else b.classList.add("incorrect");
+        setTimeout(next,600);
+      };
+      rowDiv.appendChild(b);
+    }
+    aDiv.appendChild(rowDiv);
+  }
 }
 
 function next(){
@@ -275,12 +292,26 @@ function next(){
   }
 }
 
+// PARTAGE type iOS / Web
 function shareQuiz(i){
-  const blob=new Blob([JSON.stringify(quizzes[i],null,2)],{type:"application/json"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download=(quizzes[i].title||"quiz")+".json";
-  a.click();
+  const quiz=quizzes[i];
+  const data=JSON.stringify(quiz,null,2);
+  const blob=new Blob([data],{type:"application/json"});
+  const file=new File([blob],`${quiz.title||"quiz"}.json`,{type:"application/json"});
+
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    navigator.share({
+      title: quiz.title,
+      text: "Voici mon quiz !",
+      files: [file]
+    }).catch(err=>console.log(err));
+  } else {
+    // fallback : téléchargement classique
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=`${quiz.title||"quiz"}.json`;
+    a.click();
+  }
 }
 
 function importQuiz(e){
