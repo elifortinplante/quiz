@@ -89,9 +89,17 @@ h1,h2{text-align:center}
 <!-- EDITOR -->
 <div id="editor" class="hidden">
 <h2>Créer / Modifier un quiz</h2>
+
 <input id="title" placeholder="Titre du quiz"><br><br>
+
+<input id="image" placeholder="URL image du quiz"><br>
+<input type="file" id="imageFile" accept="image/*" class="hidden">
+<button onclick="document.getElementById('imageFile').click()">📸 Galerie couverture</button>
+<br><br>
+
 <div id="questions"></div>
 <button onclick="addQuestion()">➕ Ajouter une question</button><br><br>
+
 <button onclick="saveQuiz()">💾 Sauvegarder</button>
 <button onclick="home()">🏠 Accueil</button>
 </div>
@@ -120,6 +128,16 @@ let score = 0;
 
 function save(){ localStorage.setItem("quizzes",JSON.stringify(quizzes)); }
 
+document.getElementById("imageFile").onchange = e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    document.getElementById("image").value = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+};
+
 function hideAll(){
   document.querySelectorAll(".container>div").forEach(d=>d.classList.add("hidden"));
 }
@@ -136,7 +154,10 @@ function render(){
   quizzes.forEach((q,i)=>{
     const d=document.createElement("div");
     d.className="set";
-    d.innerHTML=`<img src="https://via.placeholder.com/60"><div><b>${q.title}</b></div>`;
+    d.innerHTML=`
+      <img src="${q.image || 'https://via.placeholder.com/60'}">
+      <div><b>${q.title}</b></div>
+    `;
     d.onclick=()=>start(i);
 
     const b=document.createElement("div");
@@ -169,6 +190,7 @@ function render(){
 function newQuiz(){
   currentQuizIndex=null;
   document.getElementById("title").value="";
+  document.getElementById("image").value="";
   document.getElementById("questions").innerHTML="";
   hideAll();
   document.getElementById("editor").classList.remove("hidden");
@@ -178,6 +200,7 @@ function editQuiz(i){
   currentQuizIndex=i;
   const q=quizzes[i];
   document.getElementById("title").value=q.title;
+  document.getElementById("image").value=q.image||"";
   document.getElementById("questions").innerHTML="";
   q.questions.forEach(x=>addQuestion(x.q,x.a,x.c));
   hideAll();
@@ -197,6 +220,7 @@ function addQuestion(q="",a=["","","",""],c=0){
 
 function saveQuiz(){
   const title=document.getElementById("title").value;
+  const image=document.getElementById("image").value;
   const qs=[];
   document.querySelectorAll("#questions>div").forEach(d=>{
     const i=d.querySelectorAll("input");
@@ -206,8 +230,9 @@ function saveQuiz(){
       c:parseInt(i[5].value)-1
     });
   });
-  if(currentQuizIndex!==null) quizzes[currentQuizIndex]={title,questions:qs};
-  else quizzes.push({title,questions:qs});
+  const quiz={title,image,questions:qs};
+  if(currentQuizIndex!==null) quizzes[currentQuizIndex]=quiz;
+  else quizzes.push(quiz);
   save();
   home();
 }
@@ -251,8 +276,7 @@ function next(){
 }
 
 function shareQuiz(i){
-  const data=JSON.stringify(quizzes[i],null,2);
-  const blob=new Blob([data],{type:"application/json"});
+  const blob=new Blob([JSON.stringify(quizzes[i],null,2)],{type:"application/json"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
   a.download=(quizzes[i].title||"quiz")+".json";
@@ -269,9 +293,9 @@ function importQuiz(e){
 }
 
 function exportAll(){
-  const b=new Blob([JSON.stringify(quizzes,null,2)],{type:"application/json"});
+  const blob=new Blob([JSON.stringify(quizzes,null,2)],{type:"application/json"});
   const a=document.createElement("a");
-  a.href=URL.createObjectURL(b);
+  a.href=URL.createObjectURL(blob);
   a.download="quizzes.json";
   a.click();
 }
