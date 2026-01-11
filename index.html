@@ -59,12 +59,19 @@ h1,h2{text-align:center}
   border-radius:12px;
   font-size:16px;
   cursor:pointer;
+  transition:0.3s;
 }
-.correct{outline:4px solid #2ecc71}
-.incorrect{outline:4px solid #e74c3c}
-.quiz-img{width:100%;max-height:250px;object-fit:cover;margin-bottom:15px;border-radius:12px;}
-.question-editor input{margin:2px 0;}
-button{cursor:pointer;}
+.answer.correct{outline:4px solid #2ecc71}
+.answer.incorrect{outline:4px solid #e74c3c}
+.quiz-img{
+  width:100%;
+  max-height:250px;
+  object-fit:contain;
+  margin-bottom:15px;
+  border-radius:12px;
+}
+.question-editor input{margin:2px 0; padding:5px; width:95%;}
+button{cursor:pointer; padding:8px 12px; border-radius:8px; border:none;}
 </style>
 </head>
 <body>
@@ -121,9 +128,10 @@ let currentQuizIndex = null;
 let qi = 0;
 let score = 0;
 let errors = [];
+let replayErrors = [];
 let currentAnswers = [];
 
-// Image de couverture
+// IMAGE DE COUVERTURE
 document.getElementById("imageFile").onchange = e=>{
   const file = e.target.files[0];
   if(!file) return;
@@ -234,7 +242,7 @@ function addQuestion(q="",a=["","","",""],c=0,img=""){
   };
 
   // Comportement Enter
-  const inputs = d.querySelectorAll("input");
+  const inputs = Array.from(d.querySelectorAll("input")).filter(inp=>inp.type!=="file");
   inputs.forEach((inp,i)=>{
     inp.addEventListener("keydown",e=>{
       if(e.key==="Enter"){
@@ -270,7 +278,7 @@ function saveQuiz(){
 // JEU
 function start(i){
   currentQuizIndex=i;
-  qi=0;score=0;errors=[];
+  qi=0;score=0;errors=[];replayErrors=[];
   hideAll();
   document.getElementById("game").classList.remove("hidden");
   document.getElementById("qTitle").textContent=quizzes[i].title;
@@ -278,7 +286,13 @@ function start(i){
 }
 
 function showQ(){
-  const q=quizzes[currentQuizIndex].questions[qi];
+  let q;
+  if(replayErrors.length>0){
+    q = replayErrors[qi];
+  } else {
+    q = quizzes[currentQuizIndex].questions[qi];
+  }
+
   const imgContainer=document.getElementById("quiz-img-container");
   imgContainer.innerHTML="";
   if(q.img){
@@ -309,7 +323,7 @@ function showQ(){
       b.textContent=ansObj.text;
       b.onclick=()=>{
         if(ansObj.index===q.c){score++; b.classList.add("correct");}
-        else{ b.classList.add("incorrect"); errors.push(q);}
+        else{ b.classList.add("incorrect"); if(!replayErrors.includes(q)) replayErrors.push(q);}
         setTimeout(next,600);
       };
       rowDiv.appendChild(b);
@@ -320,7 +334,8 @@ function showQ(){
 
 function next(){
   qi++;
-  if(qi<quizzes[currentQuizIndex].questions.length) showQ();
+  const total = replayErrors.length>0 ? replayErrors.length : quizzes[currentQuizIndex].questions.length;
+  if(qi<total) showQ();
   else{
     hideAll();
     document.getElementById("score").classList.remove("hidden");
@@ -330,8 +345,14 @@ function next(){
 }
 
 // RECOMMENCER
-function restartAll(){ qi=0;score=0;errors=[]; hideAll(); document.getElementById("game").classList.remove("hidden"); showQ(); }
-function restartErrors(){ if(errors.length===0){ alert("Aucune erreur à rejouer !"); return; } currentQuizIndex=quizzes.indexOf(quizzes[currentQuizIndex]); qi=0; score=0; const temp=quizzes[currentQuizIndex].questions; quizzes[currentQuizIndex].questions=errors; errors=[]; hideAll(); document.getElementById("game").classList.remove("hidden"); showQ(); quizzes[currentQuizIndex].questions=temp; }
+function restartAll(){ qi=0;score=0;errors=[];replayErrors=[]; hideAll(); document.getElementById("game").classList.remove("hidden"); showQ(); }
+function restartErrors(){
+  if(replayErrors.length===0){ alert("Aucune erreur à rejouer !"); return; }
+  qi=0;score=0;
+  hideAll();
+  document.getElementById("game").classList.remove("hidden");
+  showQ();
+}
 
 // PARTAGE
 function shareQuiz(i){
