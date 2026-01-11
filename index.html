@@ -26,7 +26,6 @@ body{
 }
 
 h1,h2{text-align:center}
-
 .hidden{display:none}
 
 .set{
@@ -38,7 +37,6 @@ h1,h2{text-align:center}
   margin:10px 0;
   cursor:pointer;
 }
-
 .set:hover{background:#e8e8e8}
 
 .set img{
@@ -78,17 +76,17 @@ h1,h2{text-align:center}
 <body>
 <div class="container">
 
-<!-- ACCUEIL -->
+<!-- HOME -->
 <div id="home">
 <h1>Mes Quiz</h1>
-<button onclick="showEditor()">➕ Nouveau quiz</button>
+<button onclick="newQuiz()">➕ Nouveau quiz</button>
 <button onclick="document.getElementById('import').click()">📥 Importer un quiz</button>
 <button onclick="exportAll()">💾 Exporter tous les quiz</button>
 <input type="file" id="import" class="hidden" onchange="importQuiz(event)">
 <div id="list"></div>
 </div>
 
-<!-- EDITEUR -->
+<!-- EDITOR -->
 <div id="editor" class="hidden">
 <h2>Créer / Modifier un quiz</h2>
 <input id="title" placeholder="Titre du quiz"><br><br>
@@ -98,7 +96,7 @@ h1,h2{text-align:center}
 <button onclick="home()">🏠 Accueil</button>
 </div>
 
-<!-- JEU -->
+<!-- GAME -->
 <div id="game" class="hidden">
 <h2 id="qTitle"></h2>
 <p id="question"></p>
@@ -116,18 +114,20 @@ h1,h2{text-align:center}
 
 <script>
 let quizzes = JSON.parse(localStorage.getItem("quizzes")) || [];
-let currentQuiz, qi, score;
+let currentQuizIndex = null;
+let qi = 0;
+let score = 0;
 
 function save(){ localStorage.setItem("quizzes",JSON.stringify(quizzes)); }
+
+function hideAll(){
+  document.querySelectorAll(".container>div").forEach(d=>d.classList.add("hidden"));
+}
 
 function home(){
   hideAll();
   document.getElementById("home").classList.remove("hidden");
   render();
-}
-
-function hideAll(){
-  document.querySelectorAll(".container>div").forEach(d=>d.classList.add("hidden"));
 }
 
 function render(){
@@ -142,26 +142,46 @@ function render(){
     const b=document.createElement("div");
     b.className="set-buttons";
 
-    const e=document.createElement("button");
-    e.textContent="✏️";
-    e.onclick=x=>{x.stopPropagation();edit(i);};
+    const edit=document.createElement("button");
+    edit.textContent="✏️ Modifier";
+    edit.onclick=e=>{e.stopPropagation();editQuiz(i);};
+
+    const share=document.createElement("button");
+    share.textContent="📤 Partager";
+    share.onclick=e=>{e.stopPropagation();shareQuiz(i);};
 
     const del=document.createElement("button");
     del.textContent="🗑️";
-    del.onclick=x=>{x.stopPropagation();quizzes.splice(i,1);save();render();};
+    del.onclick=e=>{
+      e.stopPropagation();
+      if(confirm("Supprimer ce quiz ?")){
+        quizzes.splice(i,1);
+        save();render();
+      }
+    };
 
-    b.append(e,del);
+    b.append(edit,share,del);
     d.appendChild(b);
     l.appendChild(d);
   });
 }
 
-function showEditor(){
+function newQuiz(){
+  currentQuizIndex=null;
+  document.getElementById("title").value="";
+  document.getElementById("questions").innerHTML="";
   hideAll();
   document.getElementById("editor").classList.remove("hidden");
+}
+
+function editQuiz(i){
+  currentQuizIndex=i;
+  const q=quizzes[i];
+  document.getElementById("title").value=q.title;
   document.getElementById("questions").innerHTML="";
-  document.getElementById("title").value="";
-  currentQuiz=null;
+  q.questions.forEach(x=>addQuestion(x.q,x.a,x.c));
+  hideAll();
+  document.getElementById("editor").classList.remove("hidden");
 }
 
 function addQuestion(q="",a=["","","",""],c=0){
@@ -186,23 +206,23 @@ function saveQuiz(){
       c:parseInt(i[5].value)-1
     });
   });
-  quizzes.push({title,questions:qs});
+  if(currentQuizIndex!==null) quizzes[currentQuizIndex]={title,questions:qs};
+  else quizzes.push({title,questions:qs});
   save();
   home();
 }
 
 function start(i){
-  currentQuiz=quizzes[i];
-  qi=0;
-  score=0;
+  currentQuizIndex=i;
+  qi=0;score=0;
   hideAll();
   document.getElementById("game").classList.remove("hidden");
-  document.getElementById("qTitle").textContent=currentQuiz.title;
+  document.getElementById("qTitle").textContent=quizzes[i].title;
   showQ();
 }
 
 function showQ(){
-  const q=currentQuiz.questions[qi];
+  const q=quizzes[currentQuizIndex].questions[qi];
   document.getElementById("question").textContent=q.q;
   const a=document.getElementById("answers");
   a.innerHTML="";
@@ -221,13 +241,22 @@ function showQ(){
 
 function next(){
   qi++;
-  if(qi<currentQuiz.questions.length) showQ();
+  if(qi<quizzes[currentQuizIndex].questions.length) showQ();
   else{
     hideAll();
     document.getElementById("score").classList.remove("hidden");
     document.getElementById("result").textContent=
-      `Score : ${score} / ${currentQuiz.questions.length}`;
+      `Score : ${score} / ${quizzes[currentQuizIndex].questions.length}`;
   }
+}
+
+function shareQuiz(i){
+  const data=JSON.stringify(quizzes[i],null,2);
+  const blob=new Blob([data],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=(quizzes[i].title||"quiz")+".json";
+  a.click();
 }
 
 function importQuiz(e){
