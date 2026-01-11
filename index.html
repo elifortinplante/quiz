@@ -63,6 +63,7 @@ h1,h2{text-align:center}
 .correct{outline:4px solid #2ecc71}
 .incorrect{outline:4px solid #e74c3c}
 .quiz-img{width:100%;max-height:250px;object-fit:cover;margin-bottom:15px;border-radius:12px;}
+.question-editor input{margin:2px 0;}
 </style>
 </head>
 <body>
@@ -82,7 +83,6 @@ h1,h2{text-align:center}
 <div id="editor" class="hidden">
 <h2>Créer / Modifier un quiz</h2>
 <input id="title" placeholder="Titre du quiz"><br><br>
-
 <input id="image" placeholder="URL image du quiz"><br>
 <input type="file" id="imageFile" accept="image/*" class="hidden">
 <button onclick="document.getElementById('imageFile').click()">📸 Galerie couverture</button>
@@ -198,16 +198,43 @@ function editQuiz(i){
   document.getElementById("editor").classList.remove("hidden");
 }
 
+// Éditeur de question avec URL image dernière ligne + bouton 📸
 function addQuestion(q="",a=["","","",""],c=0,img=""){
   const d=document.createElement("div");
+  d.className="question-editor";
+  d.style.marginBottom="15px";
+
   d.innerHTML=`
     <input placeholder="Question" value="${q}"><br>
-    <input placeholder="URL image (optionnel)" value="${img}"><br>
     ${a.map((x,i)=>`<input placeholder="Réponse ${i+1}" value="${x}"><br>`).join("")}
-    <input type="number" min="1" max="4" value="${c+1}"> Bonne réponse
+    <input type="number" min="1" max="4" value="${c+1}"> Bonne réponse<br>
+    <div style="display:flex; align-items:center; margin-top:5px;">
+      <input placeholder="URL image (optionnel)" value="${img}" style="flex:1">
+      <button style="margin-left:5px;">📸</button>
+    </div>
     <hr>
   `;
+
   document.getElementById("questions").appendChild(d);
+
+  const imgInput = d.querySelector("input[placeholder='URL image (optionnel)']");
+  const photoBtn = d.querySelector("button");
+
+  const fileInput = document.createElement("input");
+  fileInput.type="file";
+  fileInput.accept="image/*";
+  fileInput.style.display="none";
+  d.appendChild(fileInput);
+
+  photoBtn.onclick = ()=> fileInput.click();
+
+  fileInput.onchange = (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev=>{ imgInput.value = ev.target.result; };
+    reader.readAsDataURL(file);
+  };
 }
 
 function saveQuiz(){
@@ -218,9 +245,9 @@ function saveQuiz(){
     const i=d.querySelectorAll("input");
     qs.push({
       q:i[0].value,
-      img:i[1].value,
-      a:[i[2].value,i[3].value,i[4].value,i[5].value],
-      c:parseInt(i[6].value)-1
+      a:[i[1].value,i[2].value,i[3].value,i[4].value],
+      c:parseInt(i[5].value)-1,
+      img:i[6].value
     });
   });
   const quiz={title,image,questions:qs};
@@ -252,8 +279,7 @@ function showQ(){
 
   document.getElementById("question").textContent=q.q;
 
-  // mélanger réponses
-  currentAnswers=q.a.map((text,index)=>({text,index})); 
+  currentAnswers=q.a.map((text,index)=>({text,index}));
   for(let j=currentAnswers.length-1;j>0;j--){
     const k=Math.floor(Math.random()*(j+1));
     [currentAnswers[j],currentAnswers[k]]=[currentAnswers[k],currentAnswers[j]];
@@ -292,7 +318,7 @@ function next(){
   }
 }
 
-// PARTAGE type iOS / Web
+// PARTAGE iOS/Web
 function shareQuiz(i){
   const quiz=quizzes[i];
   const data=JSON.stringify(quiz,null,2);
@@ -306,7 +332,6 @@ function shareQuiz(i){
       files: [file]
     }).catch(err=>console.log(err));
   } else {
-    // fallback : téléchargement classique
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
     a.download=`${quiz.title||"quiz"}.json`;
@@ -335,3 +360,4 @@ home();
 </script>
 </body>
 </html>
+
